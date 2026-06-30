@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solar System Weather Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#050714;
+    --panel:#0c1126;
+    --panel2:#121933;
+    --accent:#7fd8ff;
+    --accent2:#ffb86b;
+    --text:#eef1f8;
+    --muted:#8993ad;
+    --border:#1f2742;
+    --live:#5eeaa0;
+    --sim:#ffb86b;
+    --font-display:'Space Grotesk', system-ui, sans-serif;
+    --font-body:'Inter', system-ui, sans-serif;
+    --font-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:var(--font-body);
+    background:
+      radial-gradient(ellipse 900px 500px at 12% -8%, #1a2a52 0%, transparent 50%),
+      radial-gradient(ellipse 900px 500px at 88% 6%, #321a4a 0%, transparent 50%),
+      radial-gradient(ellipse 700px 500px at 50% 115%, #0e2238 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:0 0 80px;
+  }
+  .stars{ position:fixed; inset:0; z-index:-1; overflow:hidden; }
+  .stars span{
+    position:absolute; width:2px; height:2px; background:#fff; border-radius:50%;
+    opacity:0.6; animation:twinkle 4s infinite ease-in-out;
+  }
+  @keyframes twinkle{0%,100%{opacity:0.12;}50%{opacity:0.9;}}
+
+  header{ text-align:center; padding:64px 20px 28px; }
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:0.72em;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--accent);
+    opacity:0.8;
+  }
+  header h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:3em;
+    margin:10px 0 0;
+    background:linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    letter-spacing:0.5px;
+  }
+  header p.method{
+    color:var(--muted);
+    font-size:0.85em;
+    margin:14px auto 0;
+    max-width:640px;
+    line-height:1.6;
+  }
+  header p.method b.live-tag{color:var(--live);}
+  header p.method b.sim-tag{color:var(--sim);}
+
+  /* ---------- Orbit rail (signature element) ---------- */
+  .orbit-rail-wrap{
+    max-width:1200px;
+    margin:36px auto 0;
+    padding:0 20px;
+  }
+  .orbit-rail-label{
+    font-family:var(--font-mono);
+    font-size:0.68em;
+    color:var(--muted);
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    margin-bottom:10px;
+    padding-left:4px;
+  }
+  .orbit-rail{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:0;
+    overflow-x:auto;
+    padding:18px 10px 22px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    border-top:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    scrollbar-width:thin;
+  }
+  .orbit-rail::before{
+    content:'';
+    position:absolute;
+    left:0; right:0; top:50%;
+    height:1px;
+    background:linear-gradient(90deg, transparent, var(--border) 6%, var(--border) 94%, transparent);
+    transform:translateY(-50%);
+    z-index:0;
+  }
+  .orbit-dot-wrap{
+    flex:0 0 auto;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    padding:0 14px;
+    cursor:pointer;
+    position:relative;
+    z-index:1;
+    background:transparent;
+    border:none;
+    color:inherit;
+    font-family:var(--font-mono);
+  }
+  .orbit-dot{
+    border-radius:50%;
+    box-shadow:0 0 0 3px var(--bg), 0 0 14px 0 rgba(0,0,0,0.5);
+    transition:transform .15s ease;
+  }
+  .orbit-dot-wrap:hover .orbit-dot{ transform:scale(1.25); }
+  .orbit-dot-wrap .dname{
+    font-size:0.62em;
+    color:var(--muted);
+    white-space:nowrap;
+    letter-spacing:0.3px;
+  }
+  .orbit-dot-wrap.moon-dot{ opacity:0.85; }
+  .orbit-dot-wrap.moon-dot .orbit-dot{ box-shadow:0 0 0 2px var(--bg); }
+
+  /* ---------- Filter toolbar ---------- */
+  .toolbar{
+    max-width:1200px;
+    margin:28px auto 0;
+    padding:0 20px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+  }
+  .filter-btn{
+    padding:8px 16px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--panel2);
+    color:var(--muted);
+    font-size:0.82em;
+    font-family:var(--font-body);
+    font-weight:500;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  .filter-btn:hover{ color:var(--text); border-color:var(--accent); }
+  .filter-btn.active{
+    background:linear-gradient(135deg, var(--accent), #4a9fd6);
+    color:#06121a;
+    border-color:transparent;
+    font-weight:600;
+  }
+  .refresh-btn{
+    padding:8px 18px;
+    border-radius:999px;
+    border:none;
+    background:linear-gradient(135deg, var(--accent2), #d6824a);
+    color:#1a0f06;
+    font-weight:600;
+    font-size:0.82em;
+    cursor:pointer;
+    margin-left:8px;
+    transition:transform .15s ease;
+  }
+  .refresh-btn:hover{ transform:translateY(-2px); }
+  .status{
+    width:100%;
+    text-align:center;
+    color:var(--muted);
+    font-size:0.76em;
+    font-family:var(--font-mono);
+    margin-top:4px;
+  }
+
+  /* ---------- Section groups ---------- */
+  .section{
+    max-width:1200px;
+    margin:44px auto 0;
+    padding:0 20px;
+  }
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:18px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:10px;
+  }
+  .section-head h2{
+    font-family:var(--font-display);
+    font-size:1.4em;
+    margin:0;
+    font-weight:600;
+  }
+  .section-head .count{
+    font-family:var(--font-mono);
+    font-size:0.72em;
+    color:var(--muted);
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+    gap:18px;
+  }
+
+  .card{
+    background:linear-gradient(160deg, var(--panel) 0%, var(--panel2) 100%);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:20px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 10px 28px rgba(0,0,0,0.35);
+    transition:transform .2s ease, box-shadow .2s ease, outline .2s ease;
+    scroll-margin-top:30px;
+  }
+  .card:hover{ transform:translateY(-4px); box-shadow:0 16px 34px rgba(0,0,0,0.5); }
+  .card.flash{ outline:2px solid var(--accent); }
+  .card .glow{
+    position:absolute; top:-40px; right:-40px; width:140px; height:140px;
+    border-radius:50%; filter:blur(40px); opacity:0.32; z-index:0;
+  }
+  .card-head{ display:flex; justify-content:space-between; align-items:flex-start; position:relative; z-index:1; }
+  .card-head h3{ margin:0 0 2px; font-size:1.2em; font-family:var(--font-display); font-weight:600; }
+  .card-head .sub{ color:var(--muted); font-size:0.78em; }
+  .badge{
+    font-size:0.65em; font-weight:700; padding:3px 9px; border-radius:999px;
+    text-transform:uppercase; letter-spacing:0.4px; white-space:nowrap; font-family:var(--font-mono);
+  }
+  .badge.live{ background:rgba(94,234,160,0.15); color:var(--live); border:1px solid rgba(94,234,160,0.4); }
+  .badge.sim{ background:rgba(255,184,107,0.15); color:var(--sim); border:1px solid rgba(255,184,107,0.4); }
+
+  .metrics{ margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:10px; position:relative; z-index:1; }
+  .metric{ background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+  .metric .label{ font-size:0.68em; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; font-family:var(--font-mono); }
+  .metric .value{ font-size:1.1em; font-weight:600; margin-top:3px; font-family:var(--font-body); }
+  .note{ margin-top:14px; font-size:0.76em; color:var(--muted); line-height:1.55; position:relative; z-index:1; }
+  .timestamp{ margin-top:10px; font-size:0.68em; color:#5d6478; position:relative; z-index:1; font-family:var(--font-mono); }
+  .loader{
+    display:inline-block; width:12px; height:12px; border:2px solid var(--accent);
+    border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  footer{
+    max-width:1200px; margin:60px auto 0; padding:20px 20px 0; text-align:center;
+    color:var(--muted); font-size:0.72em; font-family:var(--font-mono); border-top:1px solid var(--border);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .stars span{ animation:none; }
+    .card, .orbit-dot-wrap .orbit-dot, .filter-btn, .refresh-btn{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<header>
+  <div class="eyebrow">Live telemetry · simulated atmospheres</div>
+  <h1>Solar System Weather Station</h1>
+</header>
+
+<div class="orbit-rail-wrap">
+  <div class="orbit-rail-label">Jump to a body — sized roughly by radius, ordered by distance from the Sun</div>
+  <div class="orbit-rail" id="orbitRail"></div>
+</div>
+
+<div class="toolbar" id="toolbar">
+  <button class="filter-btn active" data-filter="all">All bodies</button>
+  <button class="filter-btn" data-filter="live">Live feeds</button>
+  <button class="filter-btn" data-filter="planet">Planets</button>
+  <button class="filter-btn" data-filter="moon">Moons</button>
+  <button class="filter-btn" data-filter="dwarf">Dwarf &amp; beyond</button>
+  <button class="refresh-btn" id="refreshBtn">↻ Refresh live data</button>
+  <div class="status" id="statusLine"></div>
+</div>
+
+<div id="sections"></div>
+
+<footer>Sun: NOAA SWPC (DSCOVR/ACE, L1 solar wind) — genuinely live. Moon: live astronomical position data (distance, illumination, phase) via the Farmsense API — the Moon has no atmosphere, so there is no "weather" to measure, but its position is real and changes by the minute. Mars: NASA's InSight lander, the only mission that ever gave Mars live weather, went silent in December 2022 when dust finally buried its solar panels — no replacement live feed exists yet, so Mars is honestly simulated within InSight's real recorded range. All other bodies: simulated within published mission ranges — no live atmospheric sensors exist there today.</footer>
+
+<script>
+// ---------------------------------------------------------------
+// starfield
+// ---------------------------------------------------------------
+const starsEl = document.getElementById('stars');
+for(let i=0;i<140;i++){
+  const s = document.createElement('span');
+  s.style.left = Math.random()*100+'%';
+  s.style.top = Math.random()*100+'%';
+  s.style.animationDelay = (Math.random()*4)+'s';
+  s.style.width = s.style.height = (Math.random()*1.5+1)+'px';
+  starsEl.appendChild(s);
+}
+
+function rand(min,max){ return min + Math.random()*(max-min); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function fmtTime(){ return new Date().toLocaleTimeString(); }
+
+// ---------------------------------------------------------------
+// BODY DATA
+// type: 'star' | 'planet' | 'moon' | 'dwarf'
+// liveKind: 'sun' | 'moon' | 'mars' | null (null = always simulated)
+// orbitAU: rough distance from Sun (or parent's distance, for moons) — used to order the rail
+// dotSize: visual size in the orbit rail
+// ---------------------------------------------------------------
+const bodies = [
+  { id:'sun', name:'The Sun', sub:'G-type main-sequence star', type:'star', liveKind:'sun', color:'#ffcc66', orbitAU:0, dotSize:20 },
+  { id:'mercury', name:'Mercury', sub:'Closest planet to the Sun · 0.39 AU', type:'planet', liveKind:null, color:'#b5a692', orbitAU:0.39, dotSize:7,
+    tempRange:[-180,430], windRange:[0,0], windUnit:'km/h',
+    humidity:'0% — no atmosphere', conditions:['Airless daylight side','Airless night side','Crater shadow, deep cold'],
+    note:'No atmosphere exists to carry wind or humidity. Temperature is simulated across Mercury\'s real day/night extreme (NASA Science).' },
+  { id:'venus', name:'Venus', sub:'Hottest planet in the solar system · 0.72 AU', type:'planet', liveKind:null, color:'#e8c178', orbitAU:0.72, dotSize:9,
+    tempRange:[458,470], windRange:[300,360], windUnit:'km/h (cloud-top)',
+    humidity:'CO₂ + sulfuric-acid clouds — no water vapor', conditions:['Permanent overcast','Sulfuric-acid haze','Runaway greenhouse haze'],
+    note:'Surface temperature and cloud-top wind simulated within NASA-measured bounds; no lander has survived to report live for more than ~2 hours.' },
+  { id:'mars', name:'Mars', sub:'The Red Planet · 1.52 AU', type:'planet', liveKind:'mars', color:'#d97a4a', orbitAU:1.52, dotSize:7 },
+  { id:'moon', name:'The Moon', sub:'Earth\'s only natural satellite', type:'moon', liveKind:'moon', color:'#cfd3da', orbitAU:1.0, dotSize:4 },
+  { id:'phobos', name:'Phobos', sub:'Mars\' larger, inner moon', type:'moon', liveKind:null, color:'#8c7a6b', orbitAU:1.52, dotSize:3,
+    tempRange:[-112,-4], windRange:[0,0], windUnit:'km/h',
+    humidity:'0% — no atmosphere', conditions:['Airless, heavily cratered','Tidally locked daylight face','Deep shadowed cold'],
+    note:'Imaged by Mars Express and Viking orbiters only. Temperature simulated within its documented thermal range.' },
+  { id:'deimos', name:'Deimos', sub:'Mars\' smaller, outer moon', type:'moon', liveKind:null, color:'#9c8b7a', orbitAU:1.52, dotSize:3,
+    tempRange:[-112,-4], windRange:[0,0], windUnit:'km/h',
+    humidity:'0% — no atmosphere', conditions:['Airless, smooth regolith','Faint daylight warming','Permanent polar shadow cold'],
+    note:'Studied via flyby imagery from Mars orbiters; no surface mission has landed. Values simulated within Phobos/Deimos thermal estimates.' },
+  { id:'jupiter', name:'Jupiter', sub:'Gas giant, largest planet · 5.2 AU', type:'planet', liveKind:null, color:'#d8b27a', orbitAU:5.2, dotSize:16,
+    tempRange:[-115,-105], windRange:[500,620], windUnit:'km/h (jet streams)',
+    humidity:'H₂/He atmosphere, ammonia clouds', conditions:['Banded jet streams','Great Red Spot activity','Ammonia cloud bands'],
+    note:'No solid surface or live sensors. Values simulated at the 1-bar level using NASA/Juno-derived ranges.' },
+  { id:'io', name:'Io', sub:'Jupiter\'s volcanic moon', type:'moon', liveKind:null, color:'#e8d04a', orbitAU:5.2, dotSize:4,
+    tempRange:[-163,1300], windRange:[0,0], windUnit:'km/h',
+    humidity:'Trace sulfur-dioxide atmosphere', conditions:['Active volcanic plume','Sulfur frost plains','Lava-lit surface glow'],
+    note:'Studied by Voyager, Galileo and Juno flybys. Surface ranges from frozen plains to active lava; values simulated within their measured extremes.' },
+  { id:'europa', name:'Europa', sub:'Jupiter\'s icy ocean moon', type:'moon', liveKind:null, color:'#cdb98f', orbitAU:5.2, dotSize:4,
+    tempRange:[-220,-160], windRange:[0,0], windUnit:'km/h',
+    humidity:'Trace oxygen atmosphere', conditions:['Smooth ice plains','Fractured ice ridges','Faint surface frost plume'],
+    note:'Imaged by Galileo and Juno; surface studied for a subsurface ocean. Temperature simulated within its documented polar-to-equatorial range.' },
+  { id:'ganymede', name:'Ganymede', sub:'Largest moon in the solar system', type:'moon', liveKind:null, color:'#a89c8a', orbitAU:5.2, dotSize:5,
+    tempRange:[-203,-113], windRange:[0,0], windUnit:'km/h',
+    humidity:'Trace oxygen atmosphere', conditions:['Cratered dark terrain','Grooved icy terrain','Faint auroral glow'],
+    note:'The only moon known to generate its own magnetic field. Imaged by Voyager, Galileo and Juno; values simulated within documented bounds.' },
+  { id:'saturn', name:'Saturn', sub:'Ringed gas giant · 9.6 AU', type:'planet', liveKind:null, color:'#e3d3a3', orbitAU:9.6, dotSize:15,
+    tempRange:[-185,-170], windRange:[1600,1800], windUnit:'km/h',
+    humidity:'H₂/He atmosphere, ammonia-ice clouds', conditions:['Hexagonal polar jet stream','Equatorial jet stream','Warm polar vortex'],
+    note:'Measured up close only by Cassini (2004–2017), now silent. Values simulated within its documented range.' },
+  { id:'titan', name:'Titan', sub:'Saturn\'s largest moon', type:'moon', liveKind:null, color:'#e0a96d', orbitAU:9.6, dotSize:5,
+    tempRange:[-183,-175], windRange:[5,36], windUnit:'km/h (surface)',
+    humidity:'Methane humidity (simulated)', conditions:['Methane drizzle near lakes','Hazy nitrogen sky','Calm over the dunes'],
+    note:'Only studied directly by Huygens (2005) and Cassini radar. Values simulated within their measured bounds.' },
+  { id:'enceladus', name:'Enceladus', sub:'Saturn\'s geyser moon', type:'moon', liveKind:null, color:'#eef3f7', orbitAU:9.6, dotSize:3,
+    tempRange:[-201,-128], windRange:[0,0], windUnit:'km/h',
+    humidity:'Water-vapor plume venting', conditions:['South-pole geysers active','Fresh ice-crystal frost','Quiet tiger-stripe fractures'],
+    note:'Cassini flew directly through its water-vapor plumes. Temperature simulated within its measured polar-to-equatorial range.' },
+  { id:'uranus', name:'Uranus', sub:'Ice giant, tilted on its side · 19.2 AU', type:'planet', liveKind:null, color:'#9fd9e0', orbitAU:19.2, dotSize:11,
+    tempRange:[-200,-190], windRange:[700,900], windUnit:'km/h',
+    humidity:'H₂/He/methane atmosphere', conditions:['Pale methane haze','Faint banded clouds','Quiet upper atmosphere'],
+    note:'Visited only once, by Voyager 2 in 1986. No live source exists; values simulated within NASA\'s published range.' },
+  { id:'neptune', name:'Neptune', sub:'Windiest planet in the solar system · 30.1 AU', type:'planet', liveKind:null, color:'#5b8cde', orbitAU:30.1, dotSize:11,
+    tempRange:[-205,-195], windRange:[1900,2100], windUnit:'km/h',
+    humidity:'H₂/He/methane atmosphere', conditions:['Supersonic dark-spot winds','High cirrus methane clouds','Banded storm activity'],
+    note:'Visited only once, by Voyager 2 in 1989. No live source exists; values simulated within NASA\'s published range.' },
+  { id:'triton', name:'Triton', sub:'Neptune\'s captured moon', type:'moon', liveKind:null, color:'#c9d7e0', orbitAU:30.1, dotSize:4,
+    tempRange:[-238,-235], windRange:[0,5], windUnit:'km/h',
+    humidity:'Trace nitrogen atmosphere', conditions:['Nitrogen-ice geysers','Cantaloupe-terrain frost','Thin polar haze'],
+    note:'A retrograde, likely captured Kuiper Belt object. Imaged only by Voyager 2 in 1989; values simulated within its documented range.' },
+  { id:'pluto', name:'Pluto', sub:'Dwarf planet, Kuiper Belt · 39.5 AU', type:'dwarf', liveKind:null, color:'#cdb9a5', orbitAU:39.5, dotSize:5,
+    tempRange:[-233,-225], windRange:[0,5], windUnit:'km/h',
+    humidity:'Trace nitrogen/methane/CO atmosphere', conditions:['Nitrogen-ice haze','Thin seasonal atmosphere','Frosting surface'],
+    note:'Imaged up close only once, by New Horizons in 2015. No live source exists; values simulated within NASA\'s published range.' }
+];
+
+const sections = [
+  { key:'planet', title:'☀ Planets', match:b => b.type==='planet' },
+  { key:'moon', title:'🌙 Moons & Satellites', match:b => b.type==='moon' },
+  { key:'dwarf', title:'❄ Dwarf Planets & Beyond', match:b => b.type==='dwarf' }
+];
+
+function simulateBody(b){
+  const t = rand(b.tempRange[0], b.tempRange[1]);
+  const w = rand(b.windRange[0], b.windRange[1]);
+  return {
+    temp: `${t.toFixed(1)} °C`,
+    wind: b.windRange[1]===0 ? 'None — no atmosphere' : `${w.toFixed(0)} ${b.windUnit}`,
+    humidity: b.humidity,
+    condition: pick(b.conditions)
+  };
+}
+
+function cardHTML(b){
+  const isLive = !!b.liveKind;
+  const badgeClass = isLive ? 'live' : 'sim';
+  const badgeText = isLive ? 'Live' : 'Simulated';
+  const metricsInner = isLive
+    ? `<div class="metric" style="grid-column:1/-1; text-align:center;"><span class="loader"></span> fetching live data...</div>`
+    : '';
+  return `
+  <div class="card" data-type="${b.type}" data-live="${isLive}" id="card-${b.id}">
+    <div class="glow" style="background:${b.color}"></div>
+    <div class="card-head">
+      <div><h3>${b.name}</h3><div class="sub">${b.sub}</div></div>
+      <span class="badge ${badgeClass}">${badgeText}</span>
+    </div>
+    <div class="metrics" id="metrics-${b.id}">${metricsInner}</div>
+    <div class="note" id="note-${b.id}">${isLive ? '' : b.note}</div>
+    <div class="timestamp" id="ts-${b.id}"></div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------
+// Build the Sun's own top section + grouped sections for the rest
+// ---------------------------------------------------------------
+const sectionsEl = document.getElementById('sections');
+function buildSections(){
+  let html = '';
+  const liveBodies = bodies.filter(b => b.liveKind);
+  html += `<div class="section" id="section-live">
+    <div class="section-head"><h2>🛰 Live feeds</h2><span class="count">real data, refreshed on demand</span></div>
+    <div class="grid">${liveBodies.map(cardHTML).join('')}</div>
+  </div>`;
+  sections.forEach(sec => {
+    const items = bodies.filter(b => sec.match(b) && !b.liveKind);
+    if(items.length === 0) return;
+    html += `<div class="section" id="section-${sec.key}">
+      <div class="section-head"><h2>${sec.title}</h2><span class="count">${items.length} bodies</span></div>
+      <div class="grid">${items.map(cardHTML).join('')}</div>
+    </div>`;
+  });
+  sectionsEl.innerHTML = html;
+}
+buildSections();
+
+// ---------------------------------------------------------------
+// Orbit rail
+// ---------------------------------------------------------------
+function buildOrbitRail(){
+  const rail = document.getElementById('orbitRail');
+  const ordered = [...bodies].sort((a,b) => a.orbitAU - b.orbitAU);
+  rail.innerHTML = ordered.map(b => `
+    <button class="orbit-dot-wrap ${b.type==='moon' ? 'moon-dot' : ''}" data-target="card-${b.id}" title="${b.name}">
+      <span class="orbit-dot" style="width:${b.dotSize}px;height:${b.dotSize}px;background:${b.color || '#ffcc66'};"></span>
+      <span class="dname">${b.name}</span>
+    </button>`).join('');
+  rail.querySelectorAll('.orbit-dot-wrap').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = document.getElementById(btn.dataset.target);
+      if(!card) return;
+      card.scrollIntoView({behavior:'smooth', block:'center'});
+      card.classList.add('flash');
+      setTimeout(() => card.classList.remove('flash'), 1200);
+    });
+  });
+}
+buildOrbitRail();
+
+// ---------------------------------------------------------------
+// Filters
+// ---------------------------------------------------------------
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const f = btn.dataset.filter;
+    document.querySelectorAll('.section').forEach(sec => {
+      let visible = 0;
+      sec.querySelectorAll('.card').forEach(card => {
+        const matches = f === 'all'
+          || (f === 'live' && card.dataset.live === 'true')
+          || card.dataset.type === f;
+        card.style.display = matches ? '' : 'none';
+        if(matches) visible++;
+      });
+      sec.style.display = visible > 0 ? '' : 'none';
+    });
+  });
+});
+
+const statusLine = document.getElementById('statusLine');
+
+// ---------------------------------------------------------------
+// SUN — live, via NOAA SWPC real-time solar wind feed
+// ---------------------------------------------------------------
+async function fetchSun(){
+  const metricsEl = document.getElementById('metrics-sun');
+  const noteEl = document.getElementById('note-sun');
+  const tsEl = document.getElementById('ts-sun');
+  const badgeEl = document.querySelector('#card-sun .badge');
+  try{
+    const [plasmaRes, magRes] = await Promise.all([
+      fetch('https://services.swpc.noaa.gov/products/solar-wind/plasma-5-minute.json'),
+      fetch('https://services.swpc.noaa.gov/products/solar-wind/mag-5-minute.json')
+    ]);
+    if(!plasmaRes.ok || !magRes.ok) throw new Error('NOAA SWPC unreachable');
+    const plasma = await plasmaRes.json();
+    const mag = await magRes.json();
+    const lastPlasma = plasma[plasma.length-1];
+    const lastMag = mag[mag.length-1];
+    const [, density, speed, temperature] = lastPlasma;
+    const [, , , bz, , , bt] = lastMag;
+    metricsEl.innerHTML = `
+      <div class="metric"><div class="label">Solar wind speed</div><div class="value">${Number(speed).toFixed(0)} km/s</div></div>
+      <div class="metric"><div class="label">Plasma density</div><div class="value">${Number(density).toFixed(2)} p/cm³</div></div>
+      <div class="metric"><div class="label">Plasma temperature</div><div class="value">${Number(temperature).toExponential(2)} K</div></div>
+      <div class="metric"><div class="label">Magnetic field (Bt)</div><div class="value">${Number(bt).toFixed(2)} nT</div></div>
+    `;
+    badgeEl.textContent = 'Live'; badgeEl.className = 'badge live';
+    noteEl.textContent = 'Live solar wind plasma and magnetic field data from NOAA\'s DSCOVR/ACE spacecraft at the L1 point, via Space Weather Prediction Center. This is the closest thing to real "Sun weather" that exists.';
+    tsEl.textContent = `Fetched live just now — ${fmtTime()}`;
+  }catch(err){
+    const speed = rand(300,750);
+    const density = rand(1,9);
+    const temperature = rand(5e4,3e5);
+    const bt = rand(1,9);
+    metricsEl.innerHTML = `
+      <div class="metric"><div class="label">Solar wind speed</div><div class="value">${speed.toFixed(0)} km/s</div></div>
+      <div class="metric"><div class="label">Plasma density</div><div class="value">${density.toFixed(2)} p/cm³</div></div>
+      <div class="metric"><div class="label">Plasma temperature</div><div class="value">${temperature.toExponential(2)} K</div></div>
+      <div class="metric"><div class="label">Magnetic field (Bt)</div><div class="value">${bt.toFixed(2)} nT</div></div>
+    `;
+    badgeEl.textContent = 'Simulated'; badgeEl.className = 'badge sim';
+    noteEl.textContent = 'Could not reach NOAA SWPC just now, so this is simulated within the typical range solar wind actually occupies at L1 — try Refresh to attempt the live feed again.';
+    tsEl.textContent = `Simulated just now — ${fmtTime()}`;
+  }
+}
+
+// ---------------------------------------------------------------
+// MOON — live, via the Farmsense astronomical API. The Moon has no
+// atmosphere, so there's no "weather" to measure — but its position,
+// illumination and distance from Earth are real, calculated for this
+// exact moment, and genuinely change minute to minute.
+// ---------------------------------------------------------------
+async function fetchMoon(){
+  const metricsEl = document.getElementById('metrics-moon');
+  const noteEl = document.getElementById('note-moon');
+  const tsEl = document.getElementById('ts-moon');
+  const badgeEl = document.querySelector('#card-moon .badge');
+  try{
+    const nowSec = Math.floor(Date.now()/1000);
+    const res = await fetch(`https://api.farmsense.net/v1/moonphases/?d=${nowSec}`);
+    if(!res.ok) throw new Error('Farmsense unreachable');
+    const data = await res.json();
+    const m = data[0];
+    if(!m || m.Error !== 0) throw new Error('No moon data returned');
+    metricsEl.innerHTML = `
+      <div class="metric"><div class="label">Phase</div><div class="value">${m.Phase}</div></div>
+      <div class="metric"><div class="label">Illumination</div><div class="value">${(m.Illumination*100).toFixed(0)}%</div></div>
+      <div class="metric"><div class="label">Distance from Earth</div><div class="value">${Math.round(m.Distance).toLocaleString()} km</div></div>
+      <div class="metric"><div class="label">Moon age</div><div class="value">${m.Age.toFixed(1)} days</div></div>
+    `;
+    badgeEl.textContent = 'Live'; badgeEl.className = 'badge live';
+    noteEl.textContent = 'No atmosphere means no weather — but phase, illumination and Earth-distance are computed live for this exact moment via the Farmsense astronomical API, the way an almanac would.';
+    tsEl.textContent = `Fetched live just now — ${fmtTime()}`;
+  }catch(err){
+    const phases = ['New Moon','Waxing Crescent','First Quarter','Waxing Gibbous','Full Moon','Waning Gibbous','Last Quarter','Waning Crescent'];
+    const illum = rand(0,100);
+    const distance = rand(356500,406700);
+    const age = rand(0,29.5);
+    metricsEl.innerHTML = `
+      <div class="metric"><div class="label">Phase</div><div class="value">${pick(phases)}</div></div>
+      <div class="metric"><div class="label">Illumination</div><div class="value">${illum.toFixed(0)}%</div></div>
+      <div class="metric"><div class="label">Distance from Earth</div><div class="value">${Math.round(distance).toLocaleString()} km</div></div>
+      <div class="metric"><div class="label">Moon age</div><div class="value">${age.toFixed(1)} days</div></div>
+    `;
+    badgeEl.textContent = 'Simulated'; badgeEl.className = 'badge sim';
+    noteEl.textContent = 'Could not reach the Farmsense API just now, so this is simulated within the Moon\'s real orbital bounds (perigee to apogee) — try Refresh to attempt the live feed again.';
+    tsEl.textContent = `Simulated just now — ${fmtTime()}`;
+  }
+}
+
+// ---------------------------------------------------------------
+// MARS — attempt live NASA InSight API; fall back to simulated
+// ---------------------------------------------------------------
+async function fetchMars(){
+  const metricsEl = document.getElementById('metrics-mars');
+  const noteEl = document.getElementById('note-mars');
+  const tsEl = document.getElementById('ts-mars');
+  const badgeEl = document.querySelector('#card-mars .badge');
+
+  const fallback = () => {
+    const t = rand(-153,20);
+    const w = rand(0,97);
+    metricsEl.innerHTML = `
+      <div class="metric"><div class="label">Temperature</div><div class="value">${t.toFixed(1)} °C</div></div>
+      <div class="metric"><div class="label">Wind</div><div class="value">${w.toFixed(0)} km/h</div></div>
+      <div class="metric"><div class="label">Humidity</div><div class="value">95% CO₂ atmosphere — negligible water vapor</div></div>
+      <div class="metric"><div class="label">Conditions</div><div class="value">${pick(['Clear, thin atmosphere','Dust devil activity','Light regional dust haze'])}</div></div>
+    `;
+    badgeEl.textContent = 'Simulated'; badgeEl.className = 'badge sim';
+    noteEl.textContent = 'NASA\'s InSight lander — the only mission that ever gave Mars live weather — went silent in December 2022 when dust finally buried its solar panels for good. No replacement live feed exists yet (Curiosity and Perseverance carry weather sensors too, but neither exposes a public real-time API), so this value is honestly simulated within InSight\'s real recorded climate range for Elysium Planitia.';
+    tsEl.textContent = `Simulated just now — ${fmtTime()}`;
+  };
+
+  try{
+    const url = 'https://api.nasa.gov/insight_weather/?api_key=DEMO_KEY&feedtype=json&ver=1.0';
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('NASA InSight API unreachable');
+    const data = await res.json();
+    const sols = data.sol_keys || [];
+    if(sols.length === 0) throw new Error('No active Sol data');
+    const latestSol = sols[sols.length-1];
+    const sd = data[latestSol];
+    const at = sd.AT ? `${sd.AT.av.toFixed(1)} °C avg (${sd.AT.mn.toFixed(1)} to ${sd.AT.mx.toFixed(1)} °C)` : 'No sensor data';
+    const hws = sd.HWS ? `${sd.HWS.av.toFixed(1)} m/s avg (gusts to ${sd.HWS.mx.toFixed(1)} m/s)` : 'No sensor data';
+    const pre = sd.PRE ? `${sd.PRE.av.toFixed(1)} Pa` : 'No sensor data';
+    metricsEl.innerHTML = `
+      <div class="metric"><div class="label">Temperature (Sol ${latestSol})</div><div class="value">${at}</div></div>
+      <div class="metric"><div class="label">Wind</div><div class="value">${hws}</div></div>
+      <div class="metric"><div class="label">Pressure</div><div class="value">${pre}</div></div>
+      <div class="metric"><div class="label">Humidity</div><div class="value">Not measured (CO₂ atmosphere)</div></div>
+    `;
+    badgeEl.textContent = 'Live'; badgeEl.className = 'badge live';
+    noteEl.textContent = `Live per-Sol data from NASA's InSight lander at Elysium Planitia, Mars.`;
+    tsEl.textContent = `Fetched live just now — ${fmtTime()}`;
+  }catch(err){
+    fallback();
+  }
+}
+
+function updateSimCard(b){
+  const v = simulateBody(b);
+  document.getElementById(`metrics-${b.id}`).innerHTML = `
+    <div class="metric"><div class="label">Temperature</div><div class="value">${v.temp}</div></div>
+    <div class="metric"><div class="label">Wind</div><div class="value">${v.wind}</div></div>
+    <div class="metric"><div class="label">Humidity</div><div class="value">${v.humidity}</div></div>
+    <div class="metric"><div class="label">Conditions</div><div class="value">${v.condition}</div></div>
+  `;
+  document.getElementById(`ts-${b.id}`).textContent = `Simulated just now — ${fmtTime()}`;
+}
+
+async function refreshAll(){
+  statusLine.textContent = 'Refreshing...';
+  await Promise.all([fetchSun(), fetchMoon(), fetchMars()]);
+  bodies.filter(b => !b.liveKind).forEach(updateSimCard);
+  statusLine.textContent = `Last refreshed at ${fmtTime()}`;
+}
+
+document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+refreshAll();
+</script>
+</body>
+</html>
